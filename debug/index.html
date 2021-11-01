@@ -21,8 +21,24 @@ var map = window.map = new maplibregl.Map({
     container: 'map',
     zoom: 12.5,
     center: [-77.01866, 38.888],
-    style: 'https://demotiles.maplibre.org/style.json',
+    style: 'https://tiles.stadiamaps.com/styles/outdoors.json',
     hash: true
+});
+
+map.on('style.load', () => {
+    map.setLayers(map.getStyle().layers);
+});
+map.on('sourcedataloading', e => console.log('loading tile'));
+map.on('sourcedata', e => {
+    if (e.tile) {
+        console.group('loaded tile');
+        console.log(100 * map.getLoadedRatio('openmaptiles') + '% loaded');
+        console.log('perf timings', e.tile.perfTiming);
+        console.groupEnd();
+    }
+});
+map.on('otgm.workerresourcetimings', ({timings, offset}) => {
+    console.log('timings:', timings.map(d => ({...d, offset})));
 });
 
 </script>
