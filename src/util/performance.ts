@@ -1,4 +1,5 @@
 import type {RequestParameters} from '../util/ajax';
+import type {WorkerTileCallback, WorkerTileResult} from '../source/worker_source';
 
 export type PerformanceMetrics = {
     loadTime: number;
@@ -111,6 +112,38 @@ export class RequestPerformance {
         }
 
         return resourceTimingData;
+    }
+}
+
+export const timeOrigin = performance ? (performance.timeOrigin || (new Date().getTime() - performance.now())) : new Date().getTime();
+
+export class Timeline {
+    _marks: {[_: string]: number[]};
+
+    constructor () {
+        this._marks = {};
+        this.mark();
+    }
+
+    mark = (id?: string): void => {
+        if (performance) {
+            const _id = id || '';
+            this._marks[_id] = this._marks[_id] || [];
+            this._marks[_id].push(performance.now());
+        }
+    }
+
+    finish = (): {[_: string]: any} => {
+        this.mark();
+        return {...this._marks, timeOrigin};
+    }
+
+    wrapCallback = (callback: WorkerTileCallback): WorkerTileCallback => {
+        return (error?: Error, result?: WorkerTileResult) => {
+            const perfTiming = this.finish();
+            const modifiedResult = result ? {...result, perfTiming} : result;
+            return callback(error, modifiedResult);
+        };
     }
 }
 
