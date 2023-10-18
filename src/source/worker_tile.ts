@@ -64,7 +64,8 @@ export class WorkerTile {
         this.dependencySentinel = -1;
     }
 
-    parse(data: VectorTile, layerIndex: StyleLayerIndex, availableImages: Array<string>, actor: Actor, callback: WorkerTileCallback) {
+    parse(data: VectorTile, layerIndex: StyleLayerIndex, availableImages: Array<string>, actor: Actor, callback: WorkerTileCallback, _perfMark?: (s?: string) => void) {
+        const perfMark = _perfMark || function () {};
         this.status = 'parsing';
         this.data = data;
 
@@ -131,6 +132,7 @@ export class WorkerTile {
                 featureIndex.bucketLayerIDs.push(family.map((l) => l.id));
             }
         }
+        perfMark();
 
         let error: Error;
         let glyphMap: {
@@ -201,6 +203,7 @@ export class WorkerTile {
             if (error) {
                 return callback(error);
             } else if (glyphMap && iconMap && patternMap) {
+                perfMark();
                 const glyphAtlas = new GlyphAtlas(glyphMap);
                 const imageAtlas = new ImageAtlas(iconMap, patternMap);
 

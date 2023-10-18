@@ -30,6 +30,7 @@ import {ZoomHistory} from './zoom_history';
 import {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
 import {validateCustomStyleLayer} from './style_layer/custom_style_layer';
 import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
+import {timeOrigin as performanceTimeOrigin} from '../util/performance';
 
 // We're skipping validation errors with the `source.canvas` identifier in order
 // to continue to allow canvas sources to be added at runtime/updated in
@@ -60,6 +61,7 @@ import type {
 import type {CustomLayerInterface} from './style_layer/custom_style_layer';
 import type {Validator} from './validate_style';
 import type {OverscaledTileID} from '../source/tile_id';
+import { diff } from '@maplibre/maplibre-gl-style-spec';
 
 const supportedDiffOperations = pick(diffOperations, [
     'addLayer',
@@ -724,6 +726,51 @@ export class Style extends Evented {
         }
 
         this.stylesheet = nextState;
+
+        // reset serialization field, to be populated only when needed
+        this._serializedLayers = null;
+
+        return true;
+    }
+
+    /**
+     * Update this style's layers to match the given layers, performing only
+     * the necessary mutations.
+     *
+     * May throw an Error ('Unimplemented: METHOD') if the mapbox-gl-style-spec
+     * diff algorithm produces an operation that is not supported.
+     *
+     * @returns {boolean} true if any changes were made; false otherwise
+     * @private
+     */
+    setLayers(nextLayers: Array<LayerSpecification>): boolean {
+        this._checkLoaded();
+
+        nextLayers = clone(nextLayers);
+        nextLayers = deref(nextLayers);
+
+        const changes = diff({layers: this._serializeByIds(this._order)}, {layers: nextLayers})
+            .filter(op => !(op.command in ignoredDiffOperations));
+
+        if (changes.length === 0) {
+            return false;
+        }
+
+        const unimplementedOps = changes.filter(op => !(op.command in supportedDiffOperations));
+        if (unimplementedOps.length > 0) {
+            throw new Error(`Unimplemented: ${unimplementedOps.map(op => op.command).join(', ')}.`);
+        }
+
+        for (const op of changes) {
+            if (op.command === 'setTransition') {
+                // `transition` is always read directly off of
+                // `this.stylesheet`, which we update below
+                continue;
+            }
+            (this as any)[op.command].apply(this, op.args);
+        }
+
+        this.stylesheet = {...this.stylesheet, layers: nextLayers};
 
         // reset serialization field, to be populated only when needed
         this._serializedLayers = null;
@@ -1728,6 +1775,13 @@ export class Style extends Evented {
                 completion(null);
             }
         }
+    }
+
+    onWorkerResourceTimings(mapId: string, {timings, timeOrigin = 0}: any) {
+        this.fire(new Event('otgm.workerresourcetimings', {
+            timings,
+            offset: timeOrigin - (performanceTimeOrigin || 0)
+        }));
     }
 }
 

@@ -13,6 +13,7 @@ import type {Tile} from './tile';
 import type {Callback} from '../types/callback';
 import type {Cancelable} from '../types/cancelable';
 import type {VectorSourceSpecification, PromoteIdSpecification} from '@maplibre/maplibre-gl-style-spec';
+import { Timeline } from '../util/performance';
 
 export type VectorTileSourceOptions = VectorSourceSpecification & {
     collectResourceTiming?: boolean;
@@ -187,6 +188,8 @@ export class VectorTileSource extends Evented implements Source {
     };
 
     loadTile(tile: Tile, callback: Callback<void>) {
+        const start = performance && performance.now();
+        const timeline = new Timeline();
         const url = tile.tileID.canonical.url(this.tiles, this.map.getPixelRatio(), this.scheme);
         const params = {
             request: this.map._requestManager.transformRequest(url, ResourceType.Tile),
@@ -201,15 +204,18 @@ export class VectorTileSource extends Evented implements Source {
             promoteId: this.promoteId
         };
         params.request.collectResourceTiming = this._collectResourceTiming;
+        let op = '-';
 
         if (!tile.actor || tile.state === 'expired') {
             tile.actor = this.dispatcher.getActor();
             tile.request = tile.actor.send('loadTile', params, done.bind(this));
+            op = 'load';
         } else if (tile.state === 'loading') {
             // schedule tile reloading after it has been loaded
             tile.reloadCallback = callback;
         } else {
             tile.request = tile.actor.send('reloadTile', params, done.bind(this));
+            op = 'reload';
         }
 
         function done(err, data) {
@@ -227,6 +233,24 @@ export class VectorTileSource extends Evented implements Source {
 
             if (this.map._refreshExpiredTiles && data) tile.setExpiryData(data);
             tile.loadVectorData(data, this.map.painter);
+
+            tile.perfTiming = {start, op};
+            if (data && data.perfTiming && performance) {
+                const worker = data.perfTiming;
+                const main = timeline.finish();
+                Object.keys(main).forEach(m => {
+                    if (Array.isArray(main[m])) {
+                        (tile.perfTiming || {})[`m${m}`] = main[m].map(d => d - start);
+                    }
+                });
+                const workerOffset = worker.timeOrigin - main.timeOrigin;
+                (tile.perfTiming || {}).workerOffset = workerOffset;
+                Object.keys(worker).forEach(m => {
+                    if (Array.isArray(worker[m])) {
+                        (tile.perfTiming || {})[`w${m}`] = worker[m].map(d => d + workerOffset - start);
+                    }
+                });
+            }
 
             callback(null);
 

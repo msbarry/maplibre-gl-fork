@@ -19,6 +19,7 @@ import type {WorkerGlobalScopeInterface} from '../util/web_worker';
 import type {Callback} from '../types/callback';
 import type {LayerSpecification} from '@maplibre/maplibre-gl-style-spec';
 import type {PluginState} from './rtl_text_plugin';
+import { Timeline, timeOrigin } from '../util/performance';
 
 /**
  * The Worker class responsidble for background thread related execution
@@ -85,6 +86,20 @@ export default class Worker {
             globalRTLTextPlugin['processBidirectionalText'] = rtlTextPlugin.processBidirectionalText;
             globalRTLTextPlugin['processStyledBidirectionalText'] = rtlTextPlugin.processStyledBidirectionalText;
         };
+
+        try {
+            if (typeof PerformanceObserver === 'function') {
+                const observer = new PerformanceObserver((list) => {
+                    this.actor.send('onWorkerResourceTimings', {
+                        timings: JSON.parse(JSON.stringify(list.getEntries())),
+                        timeOrigin
+                    });
+                });
+                observer.observe({entryTypes: ["resource"]});
+            }
+        } catch (e) {
+            // dont care
+        }
     }
 
     setReferrer(mapID: string, referrer: string) {
@@ -118,7 +133,8 @@ export default class Worker {
     loadTile(mapId: string, params: WorkerTileParameters & {
         type: string;
     }, callback: WorkerTileCallback) {
-        this.getWorkerSource(mapId, params.type, params.source).loadTile(params, callback);
+        const timeline = new Timeline();
+        this.getWorkerSource(mapId, params.type, params.source).loadTile(params, timeline.wrapCallback(callback), timeline.mark);
     }
 
     loadDEMTile(mapId: string, params: WorkerDEMTileParameters, callback: WorkerDEMTileCallback) {
@@ -128,7 +144,8 @@ export default class Worker {
     reloadTile(mapId: string, params: WorkerTileParameters & {
         type: string;
     }, callback: WorkerTileCallback) {
-        this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, callback);
+        const timeline = new Timeline();
+        this.getWorkerSource(mapId, params.type, params.source).reloadTile(params, timeline.wrapCallback(callback), timeline.mark);
     }
 
     abortTile(mapId: string, params: TileParameters & {
