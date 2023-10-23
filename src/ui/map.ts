@@ -502,6 +502,7 @@ export class Map extends Camera {
     _overridePixelRatio: number | null;
     _maxCanvasSize: [number, number];
     _terrainDataCallback: (e: MapStyleDataEvent | MapSourceDataEvent) => void;
+    _tryWebgl2: boolean = true;
 
     /**
      * @internal
@@ -3028,7 +3029,7 @@ export class Map extends Camera {
         }, {once: true});
 
         const gl =
-        this._canvas.getContext('webgl2', attributes) as WebGL2RenderingContext ||
+        (this._tryWebgl2 && this._canvas.getContext('webgl2', attributes) as WebGL2RenderingContext) ||
         this._canvas.getContext('webgl', attributes) as WebGLRenderingContext;
 
         if (!gl) {
@@ -3052,7 +3053,26 @@ export class Map extends Camera {
             this._frame.cancel();
             this._frame = null;
         }
-        this.fire(new Event('webglcontextlost', {originalEvent: event}));
+        if (this._tryWebgl2) {
+            this._tryWebgl2 = false;
+            this._removeCanvas();
+            const newCanvas = this._canvas.cloneNode(false) as any;
+            newCanvas.addEventListener('webglcontextlost', this._contextLost, false);
+            newCanvas.addEventListener('webglcontextrestored', this._contextRestored, false);
+            this._canvasContainer.replaceChild(newCanvas, this._canvas);
+            this._canvas = newCanvas;
+            this._setupPainter();
+            this.resize();
+            this._update();
+            for (const id in this.style.sourceCaches) {
+                const cache = this.style.sourceCaches[id];
+                cache._tiles = {};
+                cache._cache.reset();
+            }
+            this.fire(new Event('webglcontextdowngraded', {originalEvent: event}));
+        } else {
+            this.fire(new Event('webglcontextlost', {originalEvent: event}));
+        }
     };
 
     _contextRestored = (event: any) => {
@@ -3303,10 +3323,7 @@ export class Map extends Camera {
         ImageRequest.removeThrottleControl(this._imageQueueHandle);
 
         this._resizeObserver?.disconnect();
-        const extension = this.painter.context.gl.getExtension('WEBGL_lose_context');
-        if (extension) extension.loseContext();
-        this._canvas.removeEventListener('webglcontextrestored', this._contextRestored, false);
-        this._canvas.removeEventListener('webglcontextlost', this._contextLost, false);
+        this._removeCanvas();
         DOM.remove(this._canvasContainer);
         DOM.remove(this._controlContainer);
         if (this._cooperativeGestures) {
@@ -3318,6 +3335,13 @@ export class Map extends Camera {
 
         this._removed = true;
         this.fire(new Event('remove'));
+    }
+
+    _removeCanvas() {
+        const extension = this.painter.context.gl.getExtension('WEBGL_lose_context');
+        if (extension) extension.loseContext();
+        this._canvas.removeEventListener('webglcontextrestored', this._contextRestored, false);
+        this._canvas.removeEventListener('webglcontextlost', this._contextLost, false);
     }
 
     /**
