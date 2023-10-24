@@ -3061,14 +3061,14 @@ export class Map extends Camera {
             newCanvas.addEventListener('webglcontextrestored', this._contextRestored, false);
             this._canvasContainer.replaceChild(newCanvas, this._canvas);
             this._canvas = newCanvas;
-            this._setupPainter();
-            this.resize();
-            this._update();
             for (const id in this.style.sourceCaches) {
                 const cache = this.style.sourceCaches[id];
                 cache._tiles = {};
                 cache._cache.reset();
             }
+            this._setupPainter();
+            this.resize();
+            this._update();
             this.fire(new Event('webglcontextdowngraded', {originalEvent: event}));
         } else {
             this.fire(new Event('webglcontextlost', {originalEvent: event}));
