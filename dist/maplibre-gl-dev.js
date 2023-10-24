@@ -53109,6 +53109,7 @@ let Map$1 = class Map extends Camera {
         }
         const transform = new Transform(options.minZoom, options.maxZoom, options.minPitch, options.maxPitch, options.renderWorldCopies);
         super(transform, { bearingSnap: options.bearingSnap });
+        this._tryWebgl2 = true;
         this._cooperativeGesturesOnWheel = (event) => {
             this._onCooperativeGesture(event, event[this._metaKey], 1);
         };
@@ -53118,7 +53119,27 @@ let Map$1 = class Map extends Camera {
                 this._frame.cancel();
                 this._frame = null;
             }
-            this.fire(new index.Event('webglcontextlost', { originalEvent: event }));
+            if (this._tryWebgl2) {
+                this._tryWebgl2 = false;
+                this._removeCanvas();
+                const newCanvas = this._canvas.cloneNode(false);
+                newCanvas.addEventListener('webglcontextlost', this._contextLost, false);
+                newCanvas.addEventListener('webglcontextrestored', this._contextRestored, false);
+                this._canvasContainer.replaceChild(newCanvas, this._canvas);
+                this._canvas = newCanvas;
+                for (const id in this.style.sourceCaches) {
+                    const cache = this.style.sourceCaches[id];
+                    cache._tiles = {};
+                    cache._cache.reset();
+                }
+                this._setupPainter();
+                this.resize();
+                this._update();
+                this.fire(new index.Event('webglcontextdowngraded', { originalEvent: event }));
+            }
+            else {
+                this.fire(new index.Event('webglcontextlost', { originalEvent: event }));
+            }
         };
         this._contextRestored = (event) => {
             this._setupPainter();
@@ -55213,7 +55234,7 @@ let Map$1 = class Map extends Camera {
                 webglcontextcreationerrorDetailObject.type = args.type;
             }
         }, { once: true });
-        const gl = this._canvas.getContext('webgl2', attributes) ||
+        const gl = (this._tryWebgl2 && this._canvas.getContext('webgl2', attributes)) ||
             this._canvas.getContext('webgl', attributes);
         if (!gl) {
             const msg = 'Failed to initialize WebGL';
@@ -55435,11 +55456,7 @@ let Map$1 = class Map extends Camera {
         }
         ImageRequest.removeThrottleControl(this._imageQueueHandle);
         (_a = this._resizeObserver) === null || _a === void 0 ? void 0 : _a.disconnect();
-        const extension = this.painter.context.gl.getExtension('WEBGL_lose_context');
-        if (extension)
-            extension.loseContext();
-        this._canvas.removeEventListener('webglcontextrestored', this._contextRestored, false);
-        this._canvas.removeEventListener('webglcontextlost', this._contextLost, false);
+        this._removeCanvas();
         DOM.remove(this._canvasContainer);
         DOM.remove(this._controlContainer);
         if (this._cooperativeGestures) {
@@ -55449,6 +55466,13 @@ let Map$1 = class Map extends Camera {
         index.PerformanceUtils.clearMetrics();
         this._removed = true;
         this.fire(new index.Event('remove'));
+    }
+    _removeCanvas() {
+        const extension = this.painter.context.gl.getExtension('WEBGL_lose_context');
+        if (extension)
+            extension.loseContext();
+        this._canvas.removeEventListener('webglcontextrestored', this._contextRestored, false);
+        this._canvas.removeEventListener('webglcontextlost', this._contextLost, false);
     }
     /**
      * Trigger the rendering of a single frame. Use this method with custom layers to

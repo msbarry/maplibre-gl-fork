@@ -8503,6 +8503,7 @@ export declare class Map extends Camera {
 		number
 	];
 	_terrainDataCallback: (e: MapStyleDataEvent | MapSourceDataEvent) => void;
+	_tryWebgl2: boolean;
 	/**
 	 * @internal
 	 * image queue throttling handle. To be used later when clean up
@@ -10092,6 +10093,7 @@ export declare class Map extends Camera {
 	 * methods on the map.
 	 */
 	remove(): void;
+	_removeCanvas(): void;
 	/**
 	 * Trigger the rendering of a single frame. Use this method with custom layers to
 	 * repaint the map when the layer changes. Calling this multiple times before the
