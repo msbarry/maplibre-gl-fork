@@ -1273,6 +1273,10 @@ describe('Map', () => {
             done();
         });
 
+        map.once('webglcontextdowngraded', () => {
+            map.getCanvas().dispatchEvent(new window.Event('webglcontextlost'));
+        });
+
         // Dispatch the event manually because at the time of this writing, gl does not support
         // the WEBGL_lose_context extension.
         canvas.dispatchEvent(new window.Event('webglcontextlost'));
