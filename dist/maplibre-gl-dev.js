@@ -53058,7 +53058,8 @@ const defaultOptions$4 = {
     crossSourceCollisions: true,
     validateStyle: true,
     /**Because GL MAX_TEXTURE_SIZE is usually at least 4096px. */
-    maxCanvasSize: [4096, 4096]
+    maxCanvasSize: [4096, 4096],
+    forceWebgl1: false
 };
 /**
  * The `Map` object represents the map on your page. It exposes methods
@@ -53159,6 +53160,7 @@ let Map$1 = class Map extends Camera {
         this._clickTolerance = options.clickTolerance;
         this._overridePixelRatio = options.pixelRatio;
         this._maxCanvasSize = options.maxCanvasSize;
+        this._forceWebgl1 = options.forceWebgl1;
         this.transformCameraUpdate = options.transformCameraUpdate;
         this._imageQueueHandle = ImageRequest.addThrottleControl(() => this.isMoving());
         this._requestManager = new RequestManager(options.transformRequest);
@@ -55213,7 +55215,7 @@ let Map$1 = class Map extends Camera {
                 webglcontextcreationerrorDetailObject.type = args.type;
             }
         }, { once: true });
-        const gl = this._canvas.getContext('webgl2', attributes) ||
+        const gl = (!this._forceWebgl1 && this._canvas.getContext('webgl2', attributes)) ||
             this._canvas.getContext('webgl', attributes);
         if (!gl) {
             const msg = 'Failed to initialize WebGL';

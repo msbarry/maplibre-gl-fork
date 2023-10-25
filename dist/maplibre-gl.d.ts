@@ -8425,6 +8425,7 @@ export type MapOptions = {
 		number,
 		number
 	];
+	forceWebgl1?: boolean;
 };
 /**
  * An options object for the gesture settings
@@ -8503,6 +8504,7 @@ export declare class Map extends Camera {
 		number
 	];
 	_terrainDataCallback: (e: MapStyleDataEvent | MapSourceDataEvent) => void;
+	_forceWebgl1: boolean;
 	/**
 	 * @internal
 	 * image queue throttling handle. To be used later when clean up
