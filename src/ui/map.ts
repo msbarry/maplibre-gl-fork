@@ -327,6 +327,7 @@ export type MapOptions = {
      * You shouldn't set this above WebGl `MAX_TEXTURE_SIZE`. Defaults to [4096, 4096].
      */
     maxCanvasSize?: [number, number];
+    forceWebgl1?: boolean;
 };
 
 /**
@@ -413,7 +414,8 @@ const defaultOptions = {
     crossSourceCollisions: true,
     validateStyle: true,
     /**Because GL MAX_TEXTURE_SIZE is usually at least 4096px. */
-    maxCanvasSize: [4096, 4096]
+    maxCanvasSize: [4096, 4096],
+    forceWebgl1: false
 } as CompleteMapOptions;
 
 /**
@@ -502,6 +504,7 @@ export class Map extends Camera {
     _overridePixelRatio: number | null;
     _maxCanvasSize: [number, number];
     _terrainDataCallback: (e: MapStyleDataEvent | MapSourceDataEvent) => void;
+    _forceWebgl1: boolean;
 
     /**
      * @internal
@@ -604,6 +607,7 @@ export class Map extends Camera {
         this._clickTolerance = options.clickTolerance;
         this._overridePixelRatio = options.pixelRatio;
         this._maxCanvasSize = options.maxCanvasSize;
+        this._forceWebgl1 = options.forceWebgl1;
         this.transformCameraUpdate = options.transformCameraUpdate;
 
         this._imageQueueHandle = ImageRequest.addThrottleControl(() => this.isMoving());
@@ -3028,7 +3032,7 @@ export class Map extends Camera {
         }, {once: true});
 
         const gl =
-        this._canvas.getContext('webgl2', attributes) as WebGL2RenderingContext ||
+        (!this._forceWebgl1 && this._canvas.getContext('webgl2', attributes) as WebGL2RenderingContext) ||
         this._canvas.getContext('webgl', attributes) as WebGLRenderingContext;
 
         if (!gl) {
