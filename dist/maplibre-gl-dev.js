@@ -36905,6 +36905,9 @@ class VectorTileSource extends index.Evented {
                 tile.setExpiryData(data);
             tile.loadVectorData(data, this.map.painter);
             tile.perfTiming = { start, op };
+            if (data.serverTiming) {
+                tile.perfTiming.serverTiming = data.serverTiming;
+            }
             if (data && data.perfTiming && performance) {
                 const worker = data.perfTiming;
                 const main = timeline.finish();
