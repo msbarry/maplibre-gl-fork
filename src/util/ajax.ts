@@ -62,7 +62,8 @@ export type ResponseCallback<T> = (
     error?: Error | null,
     data?: T | null,
     cacheControl?: string | null,
-    expires?: string | null
+    expires?: string | null,
+    serverTiming?: string | null,
 ) => void;
 
 /**
@@ -182,7 +183,7 @@ function makeFetchRequest(requestParameters: RequestParameters, callback: Respon
         ).then(result => {
             if (aborted) return;
             complete = true;
-            callback(null, result, response.headers.get('Cache-Control'), response.headers.get('Expires'));
+            callback(null, result, response.headers.get('Cache-Control'), response.headers.get('Expires'), response.headers.get('Server-Timing'));
         }).catch(err => {
             if (!aborted) callback(new Error(err.message));
         });

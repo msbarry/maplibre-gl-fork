@@ -22,6 +22,7 @@ export type LoadVectorTileResult = {
     vectorTile: VectorTile;
     rawData: ArrayBuffer;
     resourceTiming?: Array<PerformanceResourceTiming>;
+    serverTiming?: string;
 } & ExpiryData;
 
 type FetchingState = {
@@ -42,7 +43,7 @@ export type LoadVectorData = (params: WorkerTileParameters, callback: LoadVector
  * Loads a vector tile
  */
 function loadVectorTile(params: WorkerTileParameters, callback: LoadVectorDataCallback) {
-    const request = getArrayBuffer(params.request, (err?: Error | null, data?: ArrayBuffer | null, cacheControl?: string | null, expires?: string | null) => {
+    const request = getArrayBuffer(params.request, (err?: Error | null, data?: ArrayBuffer | null, cacheControl?: string | null, expires?: string | null, serverTiming?: string | null) => {
         if (err) {
             callback(err);
         } else if (data) {
@@ -52,7 +53,8 @@ function loadVectorTile(params: WorkerTileParameters, callback: LoadVectorDataCa
                     vectorTile,
                     rawData: data,
                     cacheControl,
-                    expires
+                    expires,
+                    serverTiming
                 });
             } catch (ex) {
                 const bytes = new Uint8Array(data);
@@ -135,7 +137,10 @@ export class VectorTileWorkerSource implements WorkerSource {
             if (response.expires) cacheControl.expires = response.expires;
             if (response.cacheControl) cacheControl.cacheControl = response.cacheControl;
 
-            const resourceTiming = {} as {resourceTiming: any};
+            const resourceTiming = {} as {resourceTiming: any; serverTiming: string};
+            if (response.serverTiming) {
+                resourceTiming.serverTiming = response.serverTiming;
+            }
             if (perf) {
                 const resourceTimingData = perf.finish();
                 // it's necessary to eval the result of getEntriesByName() here via parse/stringify
