@@ -1633,7 +1633,7 @@ function makeFetchRequest(requestParameters, callback) {
             if (aborted)
                 return;
             complete = true;
-            callback(null, result, response.headers.get('Cache-Control'), response.headers.get('Expires'));
+            callback(null, result, response.headers.get('Cache-Control'), response.headers.get('Expires'), response.headers.get('Server-Timing'));
         }).catch(err => {
             if (!aborted)
                 callback(new Error(err.message));
@@ -32339,7 +32339,7 @@ function recalculateLayers(layers, zoom, availableImages) {
  * Loads a vector tile
  */
 function loadVectorTile(params, callback) {
-    const request = index.getArrayBuffer(params.request, (err, data, cacheControl, expires) => {
+    const request = index.getArrayBuffer(params.request, (err, data, cacheControl, expires, serverTiming) => {
         if (err) {
             callback(err);
         }
@@ -32350,7 +32350,8 @@ function loadVectorTile(params, callback) {
                     vectorTile,
                     rawData: data,
                     cacheControl,
-                    expires
+                    expires,
+                    serverTiming
                 });
             }
             catch (ex) {
@@ -32422,6 +32423,9 @@ class VectorTileWorkerSource {
             if (response.cacheControl)
                 cacheControl.cacheControl = response.cacheControl;
             const resourceTiming = {};
+            if (response.serverTiming) {
+                resourceTiming.serverTiming = response.serverTiming;
+            }
             if (perf) {
                 const resourceTimingData = perf.finish();
                 // it's necessary to eval the result of getEntriesByName() here via parse/stringify

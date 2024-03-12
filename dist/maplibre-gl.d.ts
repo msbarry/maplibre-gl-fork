@@ -83,7 +83,7 @@ export type RequestParameters = {
 /**
  * The response callback used in various places
  */
-export type ResponseCallback<T> = (error?: Error | null, data?: T | null, cacheControl?: string | null, expires?: string | null) => void;
+export type ResponseCallback<T> = (error?: Error | null, data?: T | null, cacheControl?: string | null, expires?: string | null, serverTiming?: string | null) => void;
 export declare class AJAXError extends Error {
 	/**
 	 * The response's HTTP status code.
