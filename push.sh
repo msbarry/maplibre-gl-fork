@@ -2,4 +2,4 @@
 set -ex
 npm version prerelease
 ./build.sh
-npm publish
+npm publish --access public
