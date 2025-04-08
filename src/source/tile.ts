@@ -87,6 +87,7 @@ export class Tile {
     refreshedUponExpiration: boolean;
     reloadPromise: {resolve: () => void; reject: () => void};
     resourceTiming: Array<PerformanceResourceTiming>;
+    perfTiming?: {[_: string]: any};
     queryPadding: number;
 
     symbolFadeHoldUntil: number;

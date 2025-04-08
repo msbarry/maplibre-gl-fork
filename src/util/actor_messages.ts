@@ -106,6 +106,7 @@ export const enum MessageType {
     abortTile = 'AT',
     removeDEMTile = 'RDT',
     getResource = 'GR',
+    onWorkerResourceTimings = 'OWRT',
 }
 
 /**
@@ -135,6 +136,7 @@ export type RequestResponseMessageMap = {
     [MessageType.abortTile]: [TileParameters, void];
     [MessageType.removeDEMTile]: [TileParameters, void];
     [MessageType.getResource]: [RequestParameters, GetResourceResponse<any>];
+    [MessageType.onWorkerResourceTimings]: [{timings: object; timeOrigin: number}, void];
 };
 
 /**

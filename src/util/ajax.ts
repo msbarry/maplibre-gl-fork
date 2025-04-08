@@ -11,7 +11,7 @@ export const GLOBAL_DISPATCHER_ID = 'global-dispatcher';
 /**
  * A type used to store the tile's expiration date and cache control definition
  */
-export type ExpiryData = {cacheControl?: string | null; expires?: Date | string | null};
+export type ExpiryData = {cacheControl?: string | null; expires?: Date | string | null; serverTiming?: string | null};
 
 /**
  * A `RequestParameters` object to be returned from Map.options.transformRequest callbacks.
@@ -181,7 +181,7 @@ async function makeFetchRequest(requestParameters: RequestParameters, abortContr
     if (abortController.signal.aborted) {
         throw createAbortError();
     }
-    return {data: result, cacheControl: response.headers.get('Cache-Control'), expires: response.headers.get('Expires')};
+    return {data: result, cacheControl: response.headers.get('Cache-Control'), expires: response.headers.get('Expires'), serverTiming: response.headers.get('Server-Timing')};
 }
 
 function makeXMLHttpRequest(requestParameters: RequestParameters, abortController: AbortController): Promise<GetResourceResponse<any>> {
@@ -221,7 +221,7 @@ function makeXMLHttpRequest(requestParameters: RequestParameters, abortControlle
                         return;
                     }
                 }
-                resolve({data, cacheControl: xhr.getResponseHeader('Cache-Control'), expires: xhr.getResponseHeader('Expires')});
+                resolve({data, cacheControl: xhr.getResponseHeader('Cache-Control'), expires: xhr.getResponseHeader('Expires'), serverTiming: xhr.getResponseHeader('Server-Timing')});
             } else {
                 const body = new Blob([xhr.response], {type: xhr.getResponseHeader('Content-Type')});
                 reject(new AJAXError(xhr.status, xhr.statusText, requestParameters.url, body));

@@ -27,6 +27,7 @@ import {ZoomHistory} from './zoom_history';
 import {CrossTileSymbolIndex} from '../symbol/cross_tile_symbol_index';
 import {validateCustomStyleLayer} from './style_layer/custom_style_layer';
 import type {MapGeoJSONFeature} from '../util/vectortile_to_geojson';
+import {timeOrigin as performanceTimeOrigin} from '../util/performance';
 import type Point from '@mapbox/point-geometry';
 
 // We're skipping validation errors with the `source.canvas` identifier in order
@@ -245,6 +246,9 @@ export class Style extends Evented {
         });
         this.dispatcher.registerMessageHandler(MessageType.getImages, (mapId, params) => {
             return this.getImages(mapId, params);
+        });
+        this.dispatcher.registerMessageHandler(MessageType.onWorkerResourceTimings, (mapId, params) => {
+            return this.onWorkerResourceTimings(mapId, params);
         });
         this.imageManager = new ImageManager();
         this.imageManager.setEventedParent(this);
@@ -749,6 +753,48 @@ export class Style extends Evented {
         }
 
         this.stylesheet = nextState;
+
+        // reset serialization field, to be populated only when needed
+        this._serializedLayers = null;
+
+        return true;
+    }
+
+    /**
+     * Update this style's layers to match the given layers, performing only
+     * the necessary mutations.
+     *
+     * May throw an Error ('Unimplemented: METHOD') if the mapbox-gl-style-spec
+     * diff algorithm produces an operation that is not supported.
+     *
+     * @returns true if any changes were made; false otherwise
+     * @private
+     */
+    setLayers(nextLayers: Array<LayerSpecification>): boolean {
+        this._checkLoaded();
+
+        nextLayers = clone(nextLayers);
+        nextLayers = deref(nextLayers);
+
+        const changes = diffStyles(
+            {layers: this._serializeByIds(this._order), sources: {}, version: 8},
+            {layers: nextLayers, sources: {}, version: 8}
+        );
+        const operations = this._getOperationsToPerform(changes);
+
+        if (operations.unimplemented.length > 0) {
+            throw new Error(`Unimplemented: ${operations.unimplemented.join(', ')}.`);
+        }
+
+        if (operations.operations.length === 0) {
+            return false;
+        }
+
+        for (const styleChangeOperation of operations.operations) {
+            styleChangeOperation();
+        }
+
+        this.stylesheet = {...this.stylesheet, layers: nextLayers};
 
         // reset serialization field, to be populated only when needed
         this._serializedLayers = null;
@@ -1876,5 +1922,12 @@ export class Style extends Evented {
                 completion(null);
             }
         }
+    }
+
+    async onWorkerResourceTimings(mapId: string | number, {timings, timeOrigin = 0}: any): Promise<void> {
+        this.fire(new Event('otgm.workerresourcetimings', {
+            timings,
+            offset: timeOrigin - (performanceTimeOrigin || 0)
+        }));
     }
 }
