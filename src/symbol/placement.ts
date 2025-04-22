@@ -95,9 +95,9 @@ type CollisionGroup = {
 class CollisionGroups {
     collisionGroups: {[groupName: string]: CollisionGroup};
     maxGroupID: number;
-    crossSourceCollisions: boolean;
+    crossSourceCollisions: boolean | object;
 
-    constructor(crossSourceCollisions: boolean) {
+    constructor(crossSourceCollisions: boolean | object) {
         this.crossSourceCollisions = crossSourceCollisions;
         this.maxGroupID = 0;
         this.collisionGroups = {};
@@ -107,16 +107,27 @@ class CollisionGroups {
         // The predicate/groupID mechanism allows for arbitrary grouping,
         // but the current interface defines one source == one group when
         // crossSourceCollisions == true.
-        if (!this.crossSourceCollisions) {
-            if (!this.collisionGroups[sourceID]) {
+        const crossSourceCollisions = this.crossSourceCollisions;
+        if (typeof crossSourceCollisions === 'object' && crossSourceCollisions) {
+            const group = crossSourceCollisions[sourceID] || '';
+            if (!this.collisionGroups[group]) {
                 const nextGroupID = ++this.maxGroupID;
-                this.collisionGroups[sourceID] = {
+                this.collisionGroups[group] = {
                     ID: nextGroupID,
                     predicate: (key) => {
                         return key.collisionGroupID === nextGroupID;
                     }
                 };
             }
+            return this.collisionGroups[group];
+        } else if (crossSourceCollisions === false) {
+            const nextGroupID = ++this.maxGroupID;
+            this.collisionGroups[sourceID] = {
+                ID: nextGroupID,
+                predicate: (key) => {
+                    return key.collisionGroupID === nextGroupID;
+                }
+            };
             return this.collisionGroups[sourceID];
         } else {
             return {ID: 0, predicate: null};
@@ -211,7 +222,7 @@ export class Placement {
         icon: number[];
     }>>;
 
-    constructor(transform: ITransform, terrain: Terrain, fadeDuration: number, crossSourceCollisions: boolean, prevPlacement?: Placement) {
+    constructor(transform: ITransform, terrain: Terrain, fadeDuration: number, crossSourceCollisions: boolean | object, prevPlacement?: Placement) {
         this.transform = transform.clone();
         this.terrain = terrain;
         this.collisionIndex = new CollisionIndex(this.transform);

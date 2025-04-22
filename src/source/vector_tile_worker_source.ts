@@ -21,6 +21,7 @@ export type LoadVectorTileResult = {
     vectorTile: VectorTile;
     rawData: ArrayBuffer;
     resourceTiming?: Array<PerformanceResourceTiming>;
+    serverTiming?: string;
 } & ExpiryData;
 
 type FetchingState = {
@@ -72,7 +73,8 @@ export class VectorTileWorkerSource implements WorkerSource {
                 vectorTile,
                 rawData: response.data,
                 cacheControl: response.cacheControl,
-                expires: response.expires
+                expires: response.expires,
+                serverTiming: response.serverTiming
             };
         } catch (ex) {
             const bytes = new Uint8Array(response.data);
@@ -92,7 +94,7 @@ export class VectorTileWorkerSource implements WorkerSource {
      * {@link VectorTileWorkerSource#loadVectorData} (which by default expects
      * a `params.url` property) for fetching and producing a VectorTile object.
      */
-    async loadTile(params: WorkerTileParameters): Promise<WorkerTileResult | null> {
+    async loadTile(params: WorkerTileParameters, perfMark: (s?: string) => void = () => {}): Promise<WorkerTileResult | null> {
         const tileUid = params.uid;
 
         const perf = (params && params.request && params.request.collectResourceTiming) ?
@@ -105,6 +107,7 @@ export class VectorTileWorkerSource implements WorkerSource {
         workerTile.abort = abortController;
         try {
             const response = await this.loadVectorTile(params, abortController);
+            perfMark();
             delete this.loading[tileUid];
             if (!response) {
                 return null;
@@ -115,7 +118,10 @@ export class VectorTileWorkerSource implements WorkerSource {
             if (response.expires) cacheControl.expires = response.expires;
             if (response.cacheControl) cacheControl.cacheControl = response.cacheControl;
 
-            const resourceTiming = {} as {resourceTiming: any};
+            const resourceTiming = {} as {resourceTiming: any; serverTiming: string};
+            if (response.serverTiming) {
+                resourceTiming.serverTiming = response.serverTiming;
+            }
             if (perf) {
                 const resourceTimingData = perf.finish();
                 // it's necessary to eval the result of getEntriesByName() here via parse/stringify
@@ -148,7 +154,7 @@ export class VectorTileWorkerSource implements WorkerSource {
     /**
      * Implements {@link WorkerSource#reloadTile}.
      */
-    async reloadTile(params: WorkerTileParameters): Promise<WorkerTileResult> {
+    async reloadTile(params: WorkerTileParameters, perfMark: (s?: string) => void = () => {}): Promise<WorkerTileResult> {
         const uid = params.uid;
         if (!this.loaded || !this.loaded[uid]) {
             throw new Error('Should not be trying to reload a tile that was never loaded or has been removed');
@@ -156,7 +162,7 @@ export class VectorTileWorkerSource implements WorkerSource {
         const workerTile = this.loaded[uid];
         workerTile.showCollisionBoxes = params.showCollisionBoxes;
         if (workerTile.status === 'parsing') {
-            const result = await workerTile.parse(workerTile.vectorTile, this.layerIndex, this.availableImages, this.actor, params.subdivisionGranularity);
+            const result = await workerTile.parse(workerTile.vectorTile, this.layerIndex, this.availableImages, this.actor, params.subdivisionGranularity, perfMark);
             // if we have cancelled the original parse, make sure to pass the rawTileData from the original fetch
             let parseResult: WorkerTileResult;
             if (this.fetching[uid]) {
@@ -172,7 +178,7 @@ export class VectorTileWorkerSource implements WorkerSource {
         // if there was no vector tile data on the initial load, don't try and re-parse tile
         if (workerTile.status === 'done' && workerTile.vectorTile) {
             // this seems like a missing case where cache control is lost? see #3309
-            return workerTile.parse(workerTile.vectorTile, this.layerIndex, this.availableImages, this.actor, params.subdivisionGranularity);
+            return workerTile.parse(workerTile.vectorTile, this.layerIndex, this.availableImages, this.actor, params.subdivisionGranularity, perfMark);
         }
     }
 

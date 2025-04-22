@@ -74,6 +74,9 @@ export type WorkerTileResult = ExpiryData & {
         [_: string]: StyleImage;
     } | null;
     glyphPositions?: GlyphPositions | null;
+    perfTiming?: {
+        timeOrigin?: number;
+    } & Record<string, number[]>;
 };
 
 /**
@@ -96,12 +99,12 @@ export interface WorkerSource {
      * back to the main thread for rendering.  Should call the callback with:
      * `{ buckets, featureIndex, collisionIndex, rawTileData}`.
      */
-    loadTile(params: WorkerTileParameters): Promise<WorkerTileResult>;
+    loadTile(params: WorkerTileParameters, perfMark: (name?: string) => void): Promise<WorkerTileResult>;
     /**
      * Re-parses a tile that has already been loaded.  Yields the same data as
      * {@link WorkerSource#loadTile}.
      */
-    reloadTile(params: WorkerTileParameters): Promise<WorkerTileResult>;
+    reloadTile(params: WorkerTileParameters, perfMark: (name?: string) => void): Promise<WorkerTileResult>;
     /**
      * Aborts loading a tile that is in progress.
      */

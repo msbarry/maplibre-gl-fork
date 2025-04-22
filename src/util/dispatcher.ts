@@ -71,6 +71,7 @@ export function getGlobalDispatcher(): Dispatcher {
         globalDispatcher.registerMessageHandler(MessageType.getResource, (_mapId, params, abortController) => {
             return makeRequest(params, abortController);
         });
+        globalDispatcher.registerMessageHandler(MessageType.onWorkerResourceTimings, async () => {});
     }
     return globalDispatcher;
 }

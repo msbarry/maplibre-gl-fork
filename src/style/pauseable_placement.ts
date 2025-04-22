@@ -73,7 +73,7 @@ export class PauseablePlacement {
         forceFullPlacement: boolean,
         showCollisionBoxes: boolean,
         fadeDuration: number,
-        crossSourceCollisions: boolean,
+        crossSourceCollisions: boolean | object,
         prevPlacement?: Placement
     ) {
         this.placement = new Placement(transform, terrain, fadeDuration, crossSourceCollisions, prevPlacement);

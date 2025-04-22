@@ -61,7 +61,8 @@ export class WorkerTile {
         this.inFlightDependencies = [];
     }
 
-    async parse(data: VectorTile, layerIndex: StyleLayerIndex, availableImages: Array<string>, actor: IActor, subdivisionGranularity: SubdivisionGranularitySetting): Promise<WorkerTileResult> {
+    async parse(data: VectorTile, layerIndex: StyleLayerIndex, availableImages: Array<string>, actor: IActor, subdivisionGranularity: SubdivisionGranularitySetting, _perfMark?: (s?: string) => void): Promise<WorkerTileResult> {
+        const perfMark = _perfMark || function () {};
         this.status = 'parsing';
         this.data = data;
 
@@ -129,6 +130,7 @@ export class WorkerTile {
                 featureIndex.bucketLayerIDs.push(family.map((l) => l.id));
             }
         }
+        perfMark();
 
         // options.glyphDependencies looks like: {"SomeFontName":{"10":true,"32":true}}
         // this line makes an object like: {"SomeFontName":[10,32]}
@@ -161,6 +163,7 @@ export class WorkerTile {
         }
 
         const [glyphMap, iconMap, patternMap] = await Promise.all([getGlyphsPromise, getIconsPromise, getPatternsPromise]);
+        perfMark();
         const glyphAtlas = new GlyphAtlas(glyphMap);
         const imageAtlas = new ImageAtlas(iconMap, patternMap);
 
