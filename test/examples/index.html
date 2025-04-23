@@ -35,6 +35,7 @@
             }));
 
             map.on("style.load", () => {
+                map.setProjection({ type: "globe" });
                 map.setLayers(map.getStyle().layers);
                 map.addSource("geojson", {
                     type: "geojson",
