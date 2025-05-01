@@ -502,7 +502,7 @@ function placeGlyphsAlongLine(args: GlyphLinePlacementArgs): GlyphLinePlacementR
     }
 
     for (const glyph of placedGlyphs) {
-        addDynamicAttributes(dynamicLayoutVertexArray, glyph.point, glyph.angle);
+        if (glyph) addDynamicAttributes(dynamicLayoutVertexArray, glyph.point, glyph.angle);
     }
     return {};
 }
