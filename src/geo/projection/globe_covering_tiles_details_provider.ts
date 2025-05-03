@@ -94,7 +94,8 @@ export class GlobeCoveringTilesDetailsProvider implements CoveringTilesDetailsPr
     }
     
     allowVariableZoom(transform: IReadonlyTransform, options: CoveringTilesOptions): boolean {
-        return coveringZoomLevel(transform, options) > 4;
+        // TODO(otgm) remove https://github.com/maplibre/maplibre-gl-js/issues/5834 
+        return false; // coveringZoomLevel(transform, options) > 4;
     }
 
     allowWorldCopies(): boolean {

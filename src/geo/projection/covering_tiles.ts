@@ -1,6 +1,6 @@
 import {OverscaledTileID} from '../../source/tile_id';
 import {vec2, type vec4} from 'gl-matrix';
-import {MercatorCoordinate} from '../mercator_coordinate';
+import {latFromMercatorY, lngFromMercatorX, MercatorCoordinate} from '../mercator_coordinate';
 import {degreesToRadians, scaleZoom} from '../../util/util';
 import {type Aabb, IntersectionResult} from '../../util/primitives/aabb';
 
@@ -8,6 +8,8 @@ import type {IReadonlyTransform} from '../transform_interface';
 import type {Terrain} from '../../render/terrain';
 import type {Frustum} from '../../util/primitives/frustum';
 import {maxMercatorHorizonAngle} from './mercator_utils';
+import Point from '@mapbox/point-geometry';
+import {LngLat} from '../lng_lat';
 
 type CoveringTilesResult = {
     tileID: OverscaledTileID;
@@ -168,6 +170,41 @@ export function coveringZoomLevel(transform: IReadonlyTransform, options: Coveri
     return Math.max(0, z);
 }
 
+// TODO(otgm) remove https://github.com/maplibre/maplibre-gl-js/issues/5834
+class Bounds {
+    minX: number = Infinity;
+    minY: number = Infinity;
+    maxX: number = -Infinity;
+    maxY: number = -Infinity;
+
+    extend(point: Point) {
+        if (point.x < this.minX) this.minX = point.x;
+        if (point.x > this.maxX) this.maxX = point.x;
+        if (point.y < this.minY) this.minY = point.y;
+        if (point.y > this.maxY) this.maxY = point.y;
+    }
+
+    empty(): boolean {
+        return this.minX > this.maxX;
+    }
+
+    intersects(other: Bounds): boolean {
+        // If either bounds is empty, there can be no intersection
+        if (this.empty() || other.empty()) {
+            return false;
+        }
+        return !(other.minX > this.maxX ||
+            other.maxX < this.minX ||
+            other.minY > this.maxY ||
+            other.maxY < this.minY);
+    }
+
+    contains(point: Point): boolean {
+        return point.x >= this.minX && point.x <= this.maxX &&
+          point.y >= this.minY && point.y <= this.maxY;
+    }
+}
+
 /**
  * Returns a list of tiles that optimally covers the screen. Adapted for globe projection.
  * Correctly handles LOD when moving over the antimeridian.
@@ -200,6 +237,9 @@ export function coveringTiles(transform: IReadonlyTransform, options: CoveringTi
     const distanceToCenter2d = Math.hypot(centerCoord.x - cameraCoord.x, centerCoord.y - cameraCoord.y);
     const distanceZ = Math.abs(centerCoord.z - cameraCoord.z);
     const distanceToCenter3d = Math.hypot(distanceToCenter2d, distanceZ);
+    const screeBounds = new Bounds();
+    screeBounds.extend(new Point(0, 0));
+    screeBounds.extend(new Point(transform.width, transform.height));
 
     const newRootTile = (wrap: number): CoveringTilesStackEntry => {
         return {
@@ -264,6 +304,27 @@ export function coveringTiles(transform: IReadonlyTransform, options: CoveringTi
         // Have we reached the target depth?
         if (it.zoom >= z) {
             if (it.zoom < minZoom) {
+                continue;
+            }
+            // TODO(otgm) remove https://github.com/maplibre/maplibre-gl-js/issues/5834
+            const tileScreenBounds = new Bounds();
+            const worldSize = 1 << it.zoom;
+            let pointInside = false;
+            for (const dx of [0, 0.5, 1]) for (const dy of [0, 0.5, 1]) {
+                const mc = new LngLat(
+                    lngFromMercatorX(it.wrap + (x + dx)/worldSize),
+                    latFromMercatorY((y + dy)/worldSize)
+                );
+                const screen = transform.locationToScreenPoint(mc);
+                if (screeBounds.contains(screen)) {
+                    pointInside = true;
+                    break;
+                }
+                tileScreenBounds.extend(screen);
+            }
+            if (pointInside || tileScreenBounds.intersects(screeBounds)) {
+                // tile is visible
+            } else {
                 continue;
             }
             const dz = nominalZ - it.zoom;
