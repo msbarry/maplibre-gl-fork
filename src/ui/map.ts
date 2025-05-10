@@ -53,6 +53,7 @@ import type {
     LightSpecification,
     SourceSpecification,
     TerrainSpecification,
+    LayerSpecification,
     ProjectionSpecification,
     SkySpecification
 } from '@maplibre/maplibre-gl-style-spec';
@@ -281,7 +282,7 @@ export type MapOptions = {
      * If `true`, symbols from multiple sources can collide with each other during collision detection. If `false`, collision detection is run separately for the symbols in each source.
      * @defaultValue true
      */
-    crossSourceCollisions?: boolean;
+    crossSourceCollisions?: boolean | object;
     /**
      * If `true`, Resource Timing API information will be collected for requests made by GeoJSON and Vector Tile web workers (this information is normally inaccessible from the main Javascript thread). Information will be returned in a `resourceTiming` property of relevant `data` events.
      * @defaultValue false
@@ -508,7 +509,7 @@ export class Map extends Camera {
     _hash: Hash;
     _delegatedListeners: Record<string, DelegatedListener[]>;
     _fadeDuration: number;
-    _crossSourceCollisions: boolean;
+    _crossSourceCollisions: boolean | object;
     _crossFadingFactor = 1;
     _collectResourceTiming: boolean;
     _renderTaskQueue = new TaskQueue();
@@ -649,7 +650,7 @@ export class Map extends Camera {
         this._centerClampedToGround = resolvedOptions.centerClampedToGround;
         this._refreshExpiredTiles = resolvedOptions.refreshExpiredTiles === true;
         this._fadeDuration = resolvedOptions.fadeDuration;
-        this._crossSourceCollisions = resolvedOptions.crossSourceCollisions === true;
+        this._crossSourceCollisions = resolvedOptions.crossSourceCollisions;
         this._collectResourceTiming = resolvedOptions.collectResourceTiming === true;
         this._locale = {...defaultLocale, ...resolvedOptions.locale};
         this._clickTolerance = resolvedOptions.clickTolerance;
@@ -1935,6 +1936,29 @@ export class Map extends Camera {
             );
             this._updateStyle(style, options);
         }
+    }
+
+    setLayers(layers: Array<LayerSpecification>) {
+        if (this.style.setLayers(layers)) {
+            this._update(true);
+        }
+        return this;
+    }
+
+    getLoadedRatio(sourceId?: string) {
+        let total = 0, loaded = 0;
+        const sources = this.style && this.style.sourceCaches;
+        for (const id in sources) {
+            if (sourceId && id !== sourceId) continue;
+            const source = sources[id];
+            const tiles = source._tiles;
+            for (const t in tiles) {
+                const tile = tiles[t];
+                total++;
+                if (tile.state === 'loaded' || tile.state === 'errored') loaded++;
+            }
+        }
+        return loaded / (total || 1);
     }
 
     /**

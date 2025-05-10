@@ -24,6 +24,7 @@ import {
     type RemoveSourceParams,
     type UpdateLayersParameters
 } from '../util/actor_messages';
+import {Timeline, timeOrigin} from '../util/performance';
 
 /**
  * The Worker class responsible for background thread related execution
@@ -116,11 +117,15 @@ export default class Worker {
         });
 
         this.actor.registerMessageHandler(MessageType.loadTile, (mapId: string, params: WorkerTileParameters) => {
-            return this._getWorkerSource(mapId, params.type, params.source).loadTile(params);
+            const timeline = new Timeline();
+            return this._getWorkerSource(mapId, params.type, params.source).loadTile(params, timeline.mark)
+                .then(timeline.addToResult);
         });
 
         this.actor.registerMessageHandler(MessageType.reloadTile, (mapId: string, params: WorkerTileParameters) => {
-            return this._getWorkerSource(mapId, params.type, params.source).reloadTile(params);
+            const timeline = new Timeline();
+            return this._getWorkerSource(mapId, params.type, params.source).reloadTile(params, timeline.mark)
+                .then(timeline.addToResult);
         });
 
         this.actor.registerMessageHandler(MessageType.abortTile, (mapId: string, params: TileParameters) => {
@@ -176,6 +181,23 @@ export default class Worker {
         this.actor.registerMessageHandler(MessageType.setLayers, async (mapId: string, params: Array<LayerSpecification>) => {
             this._getLayerIndex(mapId).replace(params);
         });
+
+        try {
+            if (typeof PerformanceObserver === 'function') {
+                const observer = new PerformanceObserver((list) => {
+                    this.actor.sendAsync({
+                        type: MessageType.onWorkerResourceTimings,
+                        data: {
+                            timings: JSON.parse(JSON.stringify(list.getEntries())),
+                            timeOrigin
+                        }
+                    });
+                });
+                observer.observe({entryTypes: ['resource']});
+            }
+        } catch {
+            // dont care
+        }
     }
 
     private async _setImages(mapId: string, images: Array<string>): Promise<void> {

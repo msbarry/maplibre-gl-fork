@@ -506,6 +506,7 @@ function placeGlyphsAlongLine(args: GlyphLinePlacementArgs): GlyphLinePlacementR
     }
 
     for (const glyph of placedGlyphs) {
+        if (!glyph) return {notEnoughRoom: true};
         addDynamicAttributes(dynamicLayoutVertexArray, glyph.point, glyph.angle);
     }
     return {};

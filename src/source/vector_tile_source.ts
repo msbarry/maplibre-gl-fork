@@ -12,6 +12,7 @@ import type {Dispatcher} from '../util/dispatcher';
 import type {Tile} from './tile';
 import type {VectorSourceSpecification, PromoteIdSpecification} from '@maplibre/maplibre-gl-style-spec';
 import type {WorkerTileParameters, WorkerTileResult} from './worker_source';
+import {Timeline} from '../util/performance';
 import {MessageType} from '../util/actor_messages';
 
 export type VectorTileSourceOptions = VectorSourceSpecification & {
@@ -189,6 +190,8 @@ export class VectorTileSource extends Evented implements Source {
     }
 
     async loadTile(tile: Tile): Promise<void> {
+        const start = performance && performance.now();
+        const timeline = new Timeline();
         const url = tile.tileID.canonical.url(this.tiles, this.map.getPixelRatio(), this.scheme);
         const params: WorkerTileParameters = {
             request: this.map._requestManager.transformRequest(url, ResourceType.Tile),
@@ -205,13 +208,17 @@ export class VectorTileSource extends Evented implements Source {
         };
         params.request.collectResourceTiming = this._collectResourceTiming;
         let messageType: MessageType.loadTile | MessageType.reloadTile = MessageType.reloadTile;
+        let op = '-';
         if (!tile.actor || tile.state === 'expired') {
             tile.actor = this.dispatcher.getActor();
             messageType = MessageType.loadTile;
+            op = 'load';
         } else if (tile.state === 'loading') {
             return new Promise<void>((resolve, reject) => {
                 tile.reloadPromise = {resolve, reject};
             });
+        } else {
+            op = 'reload';
         }
         tile.abortController = new AbortController();
         try {
@@ -221,7 +228,7 @@ export class VectorTileSource extends Evented implements Source {
             if (tile.aborted) {
                 return;
             }
-            this._afterTileLoadWorkerResponse(tile, data);
+            this._afterTileLoadWorkerResponse(tile, data, start, op, timeline);
         } catch (err) {
             delete tile.abortController;
 
@@ -231,11 +238,11 @@ export class VectorTileSource extends Evented implements Source {
             if (err && err.status !== 404) {
                 throw err;
             }
-            this._afterTileLoadWorkerResponse(tile, null);
+            this._afterTileLoadWorkerResponse(tile, null, start, op, timeline);
         }
     }
 
-    private _afterTileLoadWorkerResponse(tile: Tile, data: WorkerTileResult) {
+    private _afterTileLoadWorkerResponse(tile: Tile, data: WorkerTileResult, start: number, op: string, timeline: Timeline) {
         if (data && data.resourceTiming) {
             tile.resourceTiming = data.resourceTiming;
         }
@@ -244,6 +251,29 @@ export class VectorTileSource extends Evented implements Source {
             tile.setExpiryData(data);
         }
         tile.loadVectorData(data, this.map.painter);
+        
+        if (data) {
+            tile.perfTiming = {start, op};
+            if (data.serverTiming) {
+                tile.perfTiming.serverTiming = data.serverTiming;
+            }
+            if (data.perfTiming && performance) {
+                const worker = data.perfTiming;
+                const main = timeline.finish();
+                Object.keys(main).forEach(m => {
+                    if (Array.isArray(main[m])) {
+                        (tile.perfTiming || {})[`m${m}`] = main[m].map(d => d - start);
+                    }
+                });
+                const workerOffset = worker.timeOrigin - main.timeOrigin;
+                (tile.perfTiming || {}).workerOffset = workerOffset;
+                Object.keys(worker).forEach(m => {
+                    if (Array.isArray(worker[m])) {
+                        (tile.perfTiming || {})[`w${m}`] = worker[m].map(d => d + workerOffset - start);
+                    }
+                });
+            }
+        }
 
         if (tile.reloadPromise) {
             const reloadPromise = tile.reloadPromise;

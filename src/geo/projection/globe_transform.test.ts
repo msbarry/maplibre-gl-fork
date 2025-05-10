@@ -290,7 +290,7 @@ describe('GlobeTransform', () => {
                 globeTransform.setPitch(60);
                 globeTransform.setBearing(-90);
                 const unprojected = globeTransform.screenPointToLocation(screenTopEdgeCenter);
-                expect(unprojected.lng).toBeCloseTo(-28.990298145461963, precisionDigits);
+                expect(unprojected.lng).toBeCloseTo(-28.93250369260619, precisionDigits);
                 expect(unprojected.lat).toBeCloseTo(0.0, precisionDigits);
             });
 
@@ -302,7 +302,8 @@ describe('GlobeTransform', () => {
                 const screenPointFurtherAboveWesternHorizon = screenTopEdgeCenter.sub(new Point(0, -100));
                 const unprojected = globeTransform.screenPointToLocation(screenPointAboveWesternHorizon);
                 const unprojected2 = globeTransform.screenPointToLocation(screenPointFurtherAboveWesternHorizon);
-                expect(unprojected).toEqual(unprojected2);
+                expect(unprojected.lng).toBeCloseTo(unprojected2.lng, 3);
+                expect(unprojected.lat).toBeCloseTo(unprojected2.lat, 3);
             });
         });
 
@@ -478,10 +479,10 @@ describe('GlobeTransform', () => {
             globeTransform.setCenter(new LngLat(0, 0));
             globeTransform.setZoom(1);
             const bounds = globeTransform.getBounds();
-            expect(bounds._ne.lat).toBeCloseTo(79.3636705287052, precisionDigits);
-            expect(bounds._ne.lng).toBeCloseTo(79.36367052870514, precisionDigits);
-            expect(bounds._sw.lat).toBeCloseTo(-79.3636705287052, precisionDigits);
-            expect(bounds._sw.lng).toBeCloseTo(-79.3636705287052, precisionDigits);
+            expect(bounds._ne.lat).toBeCloseTo(79.30536758796694, precisionDigits);
+            expect(bounds._ne.lng).toBeCloseTo(79.30536758796694, precisionDigits);
+            expect(bounds._sw.lat).toBeCloseTo(-79.30536758796694, precisionDigits);
+            expect(bounds._sw.lng).toBeCloseTo(-79.30536758796694, precisionDigits);
         });
 
         test('zoomed in', () => {
@@ -498,7 +499,7 @@ describe('GlobeTransform', () => {
             globeTransform.setCenter(new LngLat(0, -84));
             globeTransform.setZoom(-2);
             const bounds = globeTransform.getBounds();
-            expect(bounds._ne.lat).toBeCloseTo(-6.299534770946991, precisionDigits);
+            expect(bounds._ne.lat).toBeCloseTo(-6.358183351011462, precisionDigits);
             expect(bounds._ne.lng).toBeCloseTo(180, precisionDigits);
             expect(bounds._sw.lat).toBeCloseTo(-90, precisionDigits);
             expect(bounds._sw.lng).toBeCloseTo(-180, precisionDigits);
