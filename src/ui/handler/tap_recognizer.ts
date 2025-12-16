@@ -9,7 +9,7 @@ function getCentroid(points: Array<Point>) {
     return sum.div(points.length);
 }
 
-export const MAX_TAP_INTERVAL = 500;
+export const MAX_TAP_INTERVAL = 300;
 const MAX_TOUCH_TIME = 500;
 export const MAX_DIST = 30;
 

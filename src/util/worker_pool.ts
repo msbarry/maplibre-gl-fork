@@ -55,4 +55,4 @@ export class WorkerPool {
 
 // Based on results from A/B testing: https://github.com/maplibre/maplibre-gl-js/pull/2354
 const availableLogicalProcessors = Math.floor(browser.hardwareConcurrency / 2);
-WorkerPool.workerCount = isSafari(globalThis) ? Math.max(Math.min(availableLogicalProcessors, 3), 1) : 1;
+WorkerPool.workerCount = isSafari(typeof globalThis === 'undefined' ? self : globalThis) ? Math.max(Math.min(availableLogicalProcessors, 3), 1) : 1;

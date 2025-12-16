@@ -11,7 +11,7 @@ export const GLOBAL_DISPATCHER_ID = 'global-dispatcher';
 /**
  * A type used to store the tile's expiration date and cache control definition
  */
-export type ExpiryData = {cacheControl?: string | null; expires?: Date | string | null};
+export type ExpiryData = {cacheControl?: string | null; expires?: Date | string | null; serverTiming?: string | null};
 
 /**
  * A `RequestParameters` object to be returned from Map.options.transformRequest callbacks.
@@ -62,6 +62,7 @@ export type RequestParameters = {
      * Parameters supported only by browser fetch API. Property of the Request interface contains the cache mode of the request. It controls how the request will interact with the browser's HTTP cache. (https://developer.mozilla.org/en-US/docs/Web/API/Request/cache)
      */
     cache?: RequestCache;
+    noEmpty200?: boolean;
 };
 
 /**
@@ -69,6 +70,7 @@ export type RequestParameters = {
  */
 export type GetResourceResponse<T> = ExpiryData & {
     data: T;
+    status?: number;
 };
 
 /**
@@ -183,8 +185,10 @@ async function makeFetchRequest(requestParameters: RequestParameters, abortContr
         parsePromise = response.text();
     }
     const result = await parsePromise;
-    abortController.signal.throwIfAborted();
-    return {data: result, cacheControl: response.headers.get('Cache-Control'), expires: response.headers.get('Expires')};
+    if (abortController.signal.aborted) {
+        throw new Error('AbortError');
+    }
+    return {data: result, cacheControl: response.headers.get('Cache-Control'), expires: response.headers.get('Expires'), serverTiming: response.headers.get('Server-Timing'), status: response.status};
 }
 
 function makeXMLHttpRequest(requestParameters: RequestParameters, abortController: AbortController): Promise<GetResourceResponse<any>> {
@@ -224,7 +228,7 @@ function makeXMLHttpRequest(requestParameters: RequestParameters, abortControlle
                         return;
                     }
                 }
-                resolve({data, cacheControl: xhr.getResponseHeader('Cache-Control'), expires: xhr.getResponseHeader('Expires')});
+                resolve({data, cacheControl: xhr.getResponseHeader('Cache-Control'), expires: xhr.getResponseHeader('Expires'), serverTiming: xhr.getResponseHeader('Server-Timing')});
             } else {
                 const body = new Blob([xhr.response], {type: xhr.getResponseHeader('Content-Type')});
                 reject(new AJAXError(xhr.status, xhr.statusText, requestParameters.url, body));
@@ -258,7 +262,13 @@ export const makeRequest = function(requestParameters: RequestParameters, abortC
     }
     if (!isFileURL(requestParameters.url)) {
         if (fetch && Request && AbortController && Object.prototype.hasOwnProperty.call(Request.prototype, 'signal')) {
-            return makeFetchRequest(requestParameters, abortController);
+            const result = makeFetchRequest(requestParameters, abortController);
+            return requestParameters.noEmpty200
+                ? result.then(d =>
+                    d.status === 200 && d.data instanceof ArrayBuffer && d.data.byteLength === 0
+                        ? makeFetchRequest({...requestParameters, cache: 'reload'}, abortController)
+                        : d)
+                : result;
         }
         if (isWorker(self) && self.worker && self.worker.actor) {
             return self.worker.actor.sendAsync({type: MessageType.getResource, data: requestParameters, mustQueue: true, targetMapId: GLOBAL_DISPATCHER_ID}, abortController);

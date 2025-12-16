@@ -14,7 +14,7 @@ import {
 export interface ActorTarget {
     addEventListener: typeof window.addEventListener;
     removeEventListener: typeof window.removeEventListener;
-    postMessage: typeof window.postMessage;
+    postMessage: (typeof window.postMessage) | ((message: any, transfer?: Transferable[]) => void);
     terminate?: () => void;
 }
 
@@ -47,6 +47,7 @@ export interface IActor {
 export type MessageHandler<T extends MessageType> = (mapId: string | number, params: RequestResponseMessageMap[T][0], abortController?: AbortController) => Promise<RequestResponseMessageMap[T][1]>;
 
 const addEventDefaultOptions: AddEventListenerOptions = {once: true};
+const locationOrigin = location.origin === 'blob://' ? new URL(location.pathname).origin : location.origin;
 
 /**
  * An implementation of the [Actor design pattern](https://en.wikipedia.org/wiki/Actor_model)
@@ -113,7 +114,7 @@ export class Actor implements IActor {
                 const cancelMessage: MessageData = {
                     id,
                     type: '<cancel>',
-                    origin: location.origin,
+                    origin: locationOrigin,
                     targetMapId: message.targetMapId,
                     sourceMapId: this.mapId
                 };
@@ -137,17 +138,17 @@ export class Actor implements IActor {
                 ...message,
                 id,
                 sourceMapId: this.mapId,
-                origin: location.origin,
+                origin: locationOrigin,
                 data: serialize(message.data, buffers)
             };
-            this.target.postMessage(messageToPost, {transfer: buffers});
+            this.target.postMessage(messageToPost, buffers);
         });
     }
 
     receive(message: {data: MessageData}) {
         const data = message.data;
         const id = data.id;
-        if (data.origin !== 'file://' && location.origin !== 'file://' && data.origin !== 'resource://android' && location.origin !== 'resource://android' && data.origin !== location.origin) {
+        if (data.origin !== 'file://' && locationOrigin !== 'file://' && data.origin !== 'resource://android' && locationOrigin !== 'resource://android' && data.origin !== locationOrigin) {
             return;
         }
         if (data.targetMapId && this.mapId !== data.targetMapId) {
@@ -242,11 +243,11 @@ export class Actor implements IActor {
             id,
             type: '<response>',
             sourceMapId: this.mapId,
-            origin: location.origin,
+            origin: locationOrigin,
             error: err ? serialize(err) : null,
             data: serialize(data, buffers)
         };
-        this.target.postMessage(responseMessage, {transfer: buffers});
+        this.target.postMessage(responseMessage, buffers);
     }
 
     remove() {

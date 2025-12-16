@@ -940,7 +940,9 @@ export class VerticalPerspectiveTransform implements ITransform {
 
         // Ray does not intersect the sphere -> find the closest point on the horizon to the ray.
         // Intersect the ray with the clipping plane, since we know that the intersection of the clipping plane and the sphere is the horizon.
-        const horizonPlane = this._cachedClippingPlane;
+        const horizonPlane = vec4.clone(this._cachedClippingPlane);
+        // OTGM: make sure the clipped point is on this side of the planet
+        horizonPlane[3] -= 1e-3;
         const directionDotPlaneXyz = horizonPlane[0] * rayDirection[0] + horizonPlane[1] * rayDirection[1] + horizonPlane[2] * rayDirection[2];
         const originToPlaneDistance = pointPlaneSignedDistance(horizonPlane, rayOrigin);
         const distanceToIntersection = -originToPlaneDistance / directionDotPlaneXyz;
