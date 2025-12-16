@@ -6,7 +6,7 @@ import {BoundedLRUCache} from '../tile/tile_cache';
 import {extend} from '../util/util';
 import {RequestPerformance} from '../util/performance';
 import {VectorTileOverzoomed, sliceVectorTileLayer, toVirtualVectorTile} from './vector_tile_overzoomed';
-import {MLTVectorTile} from './vector_tile_mlt';
+// import {MLTVectorTile} from './vector_tile_mlt';
 import type {
     WorkerSource,
     WorkerTileParameters,
@@ -71,9 +71,11 @@ export class VectorTileWorkerSource implements WorkerSource {
     async loadVectorTile(params: WorkerTileParameters, abortController: AbortController): Promise<LoadVectorTileResult> {
         const response = await getArrayBuffer(params.request, abortController);
         try {
-            const vectorTile = params.encoding !== 'mlt' 
-                ? new VectorTile(new Protobuf(response.data)) 
-                : new MLTVectorTile(response.data);
+            // TODO(otgm) when needed
+            // const vectorTile = params.encoding !== 'mlt' 
+            //     ? new VectorTile(new Protobuf(response.data)) 
+            //     : new MLTVectorTile(response.data);
+            const vectorTile = new VectorTile(new Protobuf(response.data));
             return {
                 vectorTile,
                 rawData: response.data,

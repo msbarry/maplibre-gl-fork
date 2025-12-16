@@ -14,7 +14,8 @@ import {polygonIntersectsBox} from '../util/intersection_tests';
 import {PossiblyEvaluated} from '../style/properties';
 import {FeatureIndexArray} from './array_types.g';
 
-import {MLTVectorTile} from '../source/vector_tile_mlt';
+// TODO(otgm) when needed
+// import {MLTVectorTile} from '../source/vector_tile_mlt';
 import {Bounds} from '../geo/bounds';
 import type {OverscaledTileID} from '../tile/tile_id';
 import type {SourceFeatureState} from '../source/source_state';
@@ -114,9 +115,11 @@ export class FeatureIndex {
 
     loadVTLayers(): {[_: string]: VectorTileLayerLike} {
         if (!this.vtLayers) {
-            this.vtLayers = this.encoding !== 'mlt' 
-                ? new VectorTile(new Protobuf(this.rawTileData)).layers
-                : new MLTVectorTile(this.rawTileData).layers;
+            // TODO(otgm) when needed
+            // this.vtLayers = this.encoding !== 'mlt' 
+            //     ? new VectorTile(new Protobuf(this.rawTileData)).layers
+            //     : new MLTVectorTile(this.rawTileData).layers;
+            this.vtLayers = new VectorTile(new Protobuf(this.rawTileData)).layers;
             this.sourceLayerCoder = new DictionaryCoder(this.vtLayers ? Object.keys(this.vtLayers).sort() : [GEOJSON_TILE_LAYER_NAME]);
         }
         return this.vtLayers;
